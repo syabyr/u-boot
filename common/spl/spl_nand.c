@@ -23,7 +23,9 @@ uint32_t __weak spl_nand_get_uboot_raw_page(void)
 static int spl_nand_load_image(struct spl_image_info *spl_image,
 			struct spl_boot_device *bootdev)
 {
+	puts("NAND raw only:  \r\n");
 	nand_init();
+	//printf("%lu MiB\n", nand_size() / 1024);
 
 	printf("Loading U-Boot from 0x%08x (size 0x%08x) to 0x%08x\n",
 	       CONFIG_SYS_NAND_U_BOOT_OFFS, CONFIG_SYS_NAND_U_BOOT_SIZE,
@@ -32,8 +34,11 @@ static int spl_nand_load_image(struct spl_image_info *spl_image,
 	nand_spl_load_image(spl_nand_get_uboot_raw_page(),
 			    CONFIG_SYS_NAND_U_BOOT_SIZE,
 			    (void *)CONFIG_SYS_NAND_U_BOOT_DST);
+	mydebug("%s,%d,%s\r\n",__FILE__, __LINE__, __FUNCTION__);
 	spl_set_header_raw_uboot(spl_image);
+	mydebug("%s,%d,%s\r\n",__FILE__, __LINE__, __FUNCTION__);
 	nand_deselect();
+	mydebug("%s,%d,%s\r\n",__FILE__, __LINE__, __FUNCTION__);
 
 	return 0;
 }
@@ -114,11 +119,13 @@ static int spl_nand_load_image(struct spl_image_info *spl_image,
 	int *dst __attribute__((unused));
 
 #ifdef CONFIG_SPL_NAND_SOFTECC
-	debug("spl: nand - using sw ecc\n");
+	mydebug("spl: nand - using sw ecc\n");
 #else
-	debug("spl: nand - using hw ecc\n");
+	mydebug("spl: nand - using hw ecc\n");
 #endif
+	puts("NAND:  ");
 	nand_init();
+	//printf("%lu MiB\n", nand_size() / 1024);
 
 	header = spl_get_load_buffer(0, sizeof(*header));
 
@@ -130,7 +137,7 @@ static int spl_nand_load_image(struct spl_image_info *spl_image,
 		 * a whole block which is typically larger than
 		 * CONFIG_CMD_SPL_WRITE_SIZE therefore may overwrite
 		 * following sections like BSS
-		 */
+		 */ //运行到这里
 		nand_spl_load_image(CONFIG_CMD_SPL_NAND_OFS,
 			CONFIG_CMD_SPL_WRITE_SIZE,
 			(void *)CONFIG_SYS_TEXT_BASE);

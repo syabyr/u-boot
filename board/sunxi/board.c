@@ -399,10 +399,11 @@ static void nand_clock_setup(void)
 
 void board_nand_init(void)
 {
+	mydebug("%s:%d,%s\r\n",__FILE__,__LINE__,__FUNCTION__);
 	nand_pinmux_setup();
 	nand_clock_setup();
 #ifndef CONFIG_SPL_BUILD
-	sunxi_nand_init();
+	sunxi_nand_init();	//SPL不执行这里
 #endif
 }
 #endif

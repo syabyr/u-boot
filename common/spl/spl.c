@@ -792,7 +792,7 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 
 	switch (spl_image.os) {
 	case IH_OS_U_BOOT:
-		debug("Jumping to %s...\n", spl_phase_name(spl_next_phase()));
+		mydebug("Jumping to %s...\n", spl_phase_name(spl_next_phase()));
 		break;
 #if CONFIG_IS_ENABLED(ATF)
 	case IH_OS_ARM_TRUSTED_FIRMWARE:
@@ -827,7 +827,7 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 		debug("Unsupported OS image.. Jumping nevertheless..\n");
 	}
 #if CONFIG_VAL(SYS_MALLOC_F_LEN) && !defined(CONFIG_SYS_SPL_MALLOC_SIZE)
-	debug("SPL malloc() used 0x%lx bytes (%ld KB)\n", gd->malloc_ptr,
+	mydebug("SPL malloc() used 0x%lx bytes (%ld KB)\n", gd->malloc_ptr,
 	      gd->malloc_ptr / 1024);
 #endif
 	bootstage_mark_name(get_bootstage_id(false), "end phase");
@@ -837,7 +837,7 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 	if (ret)
 		debug("Failed to stash bootstage: err=%d\n", ret);
 #endif
-
+	mydebug("%s,%d,%s\r\n",__FILE__, __LINE__, __FUNCTION__);
 	spl_board_prepare_for_boot();
 	jump_to_image_no_args(&spl_image);
 }

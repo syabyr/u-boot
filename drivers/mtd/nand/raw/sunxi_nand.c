@@ -285,6 +285,21 @@ struct sunxi_nfc {
 	struct list_head chips;
 };
 
+
+static void dump_reg()
+{
+	for(int i=0;i<20;i++)
+	{
+		int val = readl(SUNXI_NFC_BASE+4*i);
+		mydebug("0x%08x ",val);
+		if((i+1)%8 == 0)
+		{
+			mydebug("\r\n");
+		}
+	}
+	mydebug("\r\n");
+}
+
 static inline struct sunxi_nfc *to_sunxi_nfc(struct nand_hw_control *ctrl)
 {
 	return container_of(ctrl, struct sunxi_nfc, controller);
@@ -475,7 +490,7 @@ static void sunxi_nfc_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
 	int cnt;
 	int offs = 0;
 	u32 tmp;
-
+	//mydebug("%s\r\n",__FUNCTION__);
 	while (len > offs) {
 		cnt = min(len - offs, NFC_SRAM_SIZE);
 
@@ -533,7 +548,8 @@ static void sunxi_nfc_write_buf(struct mtd_info *mtd, const uint8_t *buf,
 static uint8_t sunxi_nfc_read_byte(struct mtd_info *mtd)
 {
 	uint8_t ret;
-
+	dump_reg();
+	//mydebug("%s\r\n",__FUNCTION__);
 	sunxi_nfc_read_buf(mtd, &ret, 1);
 
 	return ret;
@@ -770,6 +786,8 @@ static void sunxi_nfc_randomizer_read_buf(struct mtd_info *mtd, uint8_t *buf,
 {
 	sunxi_nfc_randomizer_config(mtd, page, ecc);
 	sunxi_nfc_randomizer_enable(mtd);
+	mydebug("%s\r\n",__FUNCTION__);
+	dump_reg();
 	sunxi_nfc_read_buf(mtd, buf, len);
 	sunxi_nfc_randomizer_disable(mtd);
 }
@@ -822,6 +840,8 @@ static int sunxi_nfc_hw_ecc_read_chunk(struct mtd_info *mtd,
 	int raw_mode = 0;
 	u32 status;
 	int ret;
+	mydebug("%s\r\n",__FUNCTION__);
+	dump_reg();
 
 	if (*cur_off != data_off)
 		nand->cmdfunc(mtd, NAND_CMD_RNDOUT, data_off, -1);
@@ -861,7 +881,7 @@ static int sunxi_nfc_hw_ecc_read_chunk(struct mtd_info *mtd,
 
 	ret = NFC_ECC_ERR_CNT(0, readl(nfc->regs + NFC_REG_ECC_ERR_CNT(0)));
 
-	memcpy_fromio(data, nfc->regs + NFC_RAM0_BASE, ecc->size);
+	memcpy_fromio(data, nfc->regs + NFC_RAM0_BASE, ecc->size);	//从RAM0读取1024字节数据
 
 	nand->cmdfunc(mtd, NAND_CMD_RNDOUT, oob_off, -1);
 	sunxi_nfc_randomizer_read_buf(mtd, oob, ecc->bytes + 4, true, page);
@@ -915,7 +935,7 @@ static void sunxi_nfc_hw_ecc_read_extra_oob(struct mtd_info *mtd,
 	struct nand_ecc_ctrl *ecc = &nand->ecc;
 	int offset = ((ecc->bytes + 4) * ecc->steps);
 	int len = mtd->oobsize - offset;
-
+	mydebug("%s\r\n",__FUNCTION__);
 	if (len <= 0)
 		return;
 
@@ -1575,6 +1595,8 @@ static int sunxi_nand_ecc_init(struct mtd_info *mtd, struct nand_ecc_ctrl *ecc)
 		ecc->strength = nand->ecc_strength_ds;
 	}
 
+	mydebug("%s,%d,%s\r\n", __FILE__, __LINE__, __FUNCTION__ );
+
 	if (!ecc->size || !ecc->strength)
 		return -EINVAL;
 
@@ -1719,10 +1741,11 @@ static int sunxi_nand_chip_init(int node, struct sunxi_nfc *nfc, int devnum)
 	nand->read_byte = sunxi_nfc_read_byte;
 
 	mtd = nand_to_mtd(nand);
-	ret = nand_scan_ident(mtd, nsels, NULL);
+	mydebug("mtdsize1:%d\r\n",(unsigned long)(mtd->size/1024/1024));
+	ret = nand_scan_ident(mtd, nsels, NULL); //这里获取到容量的
 	if (ret)
 		return ret;
-
+	mydebug("mtdsize2:%d\r\n",(unsigned long)(mtd->size/1024/1024));
 	if (nand->bbt_options & NAND_BBT_USE_FLASH)
 		nand->bbt_options |= NAND_BBT_NO_OOB;
 
@@ -1736,25 +1759,28 @@ static int sunxi_nand_chip_init(int node, struct sunxi_nfc *nfc, int devnum)
 		dev_err(nfc->dev, "could not configure chip timings: %d\n", ret);
 		return ret;
 	}
+	mydebug("mtdsize3:%d\r\n",(unsigned long)(mtd->size/1024/1024));
 
 	ret = sunxi_nand_ecc_init(mtd, &nand->ecc);
 	if (ret) {
 		dev_err(nfc->dev, "ECC init failed: %d\n", ret);
 		return ret;
 	}
+	mydebug("mtdsize4:%d\r\n",(unsigned long)(mtd->size/1024/1024));
 
 	ret = nand_scan_tail(mtd);
 	if (ret) {
 		dev_err(nfc->dev, "nand_scan_tail failed: %d\n", ret);
 		return ret;
 	}
+	mydebug("mtdsize5:%d\r\n",(unsigned long)(mtd->size/1024/1024));
 
-	ret = nand_register(devnum, mtd);
+	ret = nand_register(devnum, mtd); //注册容量
 	if (ret) {
 		dev_err(nfc->dev, "failed to register mtd device: %d\n", ret);
 		return ret;
 	}
-
+	mydebug("mtdsize6:%d\r\n",(unsigned long)(mtd->size/1024/1024));
 	list_add_tail(&chip->node, &nfc->chips);
 
 	return 0;
@@ -1782,7 +1808,7 @@ static int sunxi_nand_chips_init(int node, struct sunxi_nfc *nfc)
 		if (ret)
 			return ret;
 	}
-
+	mydebug("sunxi_nand_chips_init done\r\n");
 	return 0;
 }
 
@@ -1809,7 +1835,7 @@ void sunxi_nand_init(void)
 	fdt_addr_t regs;
 	int node;
 	int ret;
-
+	mydebug("%s:%d,%s\r\n",__FILE__,__LINE__,__FUNCTION__);
 	nfc = kzalloc(sizeof(*nfc), GFP_KERNEL);
 	if (!nfc)
 		return;
@@ -1846,7 +1872,7 @@ void sunxi_nand_init(void)
 		dev_err(nfc->dev, "failed to init nand chips\n");
 		goto err;
 	}
-
+	mydebug("sunxi_nand_init done\r\n");
 	return;
 
 err:

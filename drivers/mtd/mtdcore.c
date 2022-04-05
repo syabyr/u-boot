@@ -409,6 +409,7 @@ static struct device_type mtd_devtype = {
 
 int add_mtd_device(struct mtd_info *mtd)
 {
+	mydebug("add_mtd_device size00:%d\r\n",(unsigned long)(mtd->size / 1024/1024));
 #ifndef __UBOOT__
 	struct mtd_notifier *not;
 #endif
@@ -432,8 +433,9 @@ int add_mtd_device(struct mtd_info *mtd)
 
 	BUG_ON(mtd->writesize == 0);
 	mutex_lock(&mtd_table_mutex);
-
+	mydebug("add_mtd_device size0:%d\r\n",(unsigned long)(mtd->size / 1024/1024));
 	i = idr_alloc(&mtd_idr, mtd, 0, 0, GFP_KERNEL);
+	mydebug("add_mtd_device size01:%d\r\n",(unsigned long)(mtd->size / 1024/1024));
 	if (i < 0)
 		goto fail_locked;
 
@@ -459,6 +461,7 @@ int add_mtd_device(struct mtd_info *mtd)
 	mtd->erasesize_mask = (1 << mtd->erasesize_shift) - 1;
 	mtd->writesize_mask = (1 << mtd->writesize_shift) - 1;
 
+	mydebug("add_mtd_device size1:%d\r\n",(unsigned long)(mtd->size / 1024/1024));
 	/* Some chips always power up locked. Unlock them now */
 	if ((mtd->flags & MTD_WRITEABLE) && (mtd->flags & MTD_POWERUP_LOCK)) {
 		error = mtd_unlock(mtd, 0, mtd->size);
@@ -490,6 +493,7 @@ int add_mtd_device(struct mtd_info *mtd)
 	   the notifier, since we hold the mtd_table_mutex */
 	list_for_each_entry(not, &mtd_notifiers, list)
 		not->add(mtd);
+	mydebug("add_mtd_device size2:%d\r\n",(unsigned long)(mtd->size / 1024/1024));
 #else
 	pr_debug("mtd: Giving out device %d to %s\n", i, mtd->name);
 #endif
@@ -1610,13 +1614,17 @@ EXPORT_SYMBOL_GPL(mtd_lock);
 
 int mtd_unlock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 {
+	mydebug("mtd_unlock size1:%d\r\n",(unsigned long)(mtd->size / 1024/1024));
 	if (!mtd->_unlock)
 		return -EOPNOTSUPP;
 	if (ofs < 0 || ofs > mtd->size || len > mtd->size - ofs)
 		return -EINVAL;
 	if (!len)
 		return 0;
-	return mtd->_unlock(mtd, ofs, len);
+	int ret;
+	ret = mtd->_unlock(mtd, ofs, len);
+	mydebug("mtd_unlock size2:%d\r\n",(unsigned long)(mtd->size / 1024/1024));
+	return ret;
 }
 EXPORT_SYMBOL_GPL(mtd_unlock);
 

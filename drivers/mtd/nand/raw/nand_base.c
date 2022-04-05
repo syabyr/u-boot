@@ -614,7 +614,7 @@ static void nand_command(struct mtd_info *mtd, unsigned int command,
 {
 	register struct nand_chip *chip = mtd_to_nand(mtd);
 	int ctrl = NAND_CTRL_CLE | NAND_CTRL_CHANGE;
-
+	mydebug("%s,%d,%s\r\n",__FILE__,__LINE__,__FUNCTION__);
 	/* Write out the command to the device */
 	if (command == NAND_CMD_SEQIN) {
 		int readcmd;
@@ -4429,6 +4429,11 @@ struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 
 	/* Read entire ID string */
 	ret = nand_readid_op(chip, 0, id_data, 8);
+	for(int i=0;i<8;i++)
+	{
+		mydebug("%02x ",id_data[i]);
+	}
+	mydebug("\r\n");
 	if (ret)
 		return ERR_PTR(ret);
 
@@ -4660,7 +4665,7 @@ int nand_scan_ident(struct mtd_info *mtd, int maxchips,
 	/* Read the flash type */
 	type = nand_get_flash_type(mtd, chip, &nand_maf_id,
 				   &nand_dev_id, table);
-
+	mydebug("flash mid,did:%d,%d\r\n",nand_maf_id,nand_dev_id);
 	if (IS_ERR(type)) {
 		if (!(chip->options & NAND_SCAN_SILENT_NODEV))
 			pr_warn("No NAND device found\n");
@@ -4710,7 +4715,7 @@ int nand_scan_ident(struct mtd_info *mtd, int maxchips,
 	if (i > 1)
 		pr_info("%d chips detected\n", i);
 #endif
-
+	mydebug("chip count:%d,size:%ld\r\n",i,chip->chipsize);
 	/* Store the number of chips and calc total size for mtd */
 	chip->numchips = i;
 	mtd->size = i * chip->chipsize;

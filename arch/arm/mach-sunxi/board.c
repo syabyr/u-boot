@@ -258,6 +258,9 @@ uint32_t sunxi_get_boot_device(void)
 	 * binary over USB. If it is found, it determines where SPL was
 	 * read from.
 	 */
+	//return BOOT_DEVICE_BOARD;
+	return BOOT_DEVICE_NAND;
+
 	switch (boot_source) {
 	case SUNXI_INVALID_BOOT_SOURCE:
 		return BOOT_DEVICE_BOARD;

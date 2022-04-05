@@ -59,16 +59,18 @@ int nand_register(int devnum, struct mtd_info *mtd)
 
 	sprintf(dev_name[devnum], "nand%d", devnum);
 	mtd->name = dev_name[devnum];
-
+	mydebug("nand_register size1:%d\r\n",(unsigned long)(mtd->size/1024/1024));
 #ifdef CONFIG_MTD
 	/*
 	 * Add MTD device so that we can reference it later
 	 * via the mtdcore infrastructure (e.g. ubi).
 	 */
 	add_mtd_device(mtd);
+	mydebug("nand_register size2:%d\r\n",(unsigned long)(mtd->size / 1024/1024));
 #endif
-
+	mydebug("nand_register size31:%d\r\n",total_nand_size / 1024);
 	total_nand_size += mtd->size / 1024;
+	mydebug("nand_register size3:%d\r\n",total_nand_size / 1024);
 
 	if (nand_curr_device == -1)
 		nand_curr_device = devnum;
@@ -154,7 +156,7 @@ void nand_init(void)
 	if (initialized)
 		return;
 	initialized = 1;
-
+	mydebug("%s,%d,%s\r\n",__FILE__, __LINE__, __FUNCTION__);
 #if CONFIG_IS_ENABLED(SYS_NAND_SELF_INIT)
 	board_nand_init();
 #else
