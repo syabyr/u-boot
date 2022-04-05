@@ -862,6 +862,25 @@
 				bias-pull-up;
 			};
 
+			nand_pins: nand-pins {
+				pins = "PC0", "PC1", "PC2", "PC5",
+				       "PC8", "PC9", "PC10", "PC11",
+				       "PC12", "PC13", "PC14", "PC15";
+				function = "nand0";
+			};
+
+			nand_pins_cs0: nand-pins-cs0 {
+				pins = "PC4";
+				function = "nand0";
+				bias-pull-up;
+			};
+
+			nand_pins_rb0: nand-pins-rb0 {
+				pins = "PC6";
+				function = "nand0";
+				bias-pull-up;
+			};
+
 			ps2_0_pins: ps2-0-pins {
 				pins = "PI20", "PI21";
 				function = "ps2";
