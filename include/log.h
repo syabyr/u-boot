@@ -282,6 +282,11 @@ int _log_buffer(enum log_category_t cat, enum log_level_t level,
 #define debug(fmt, args...)			\
 	debug_cond(_DEBUG, fmt, ##args)
 
+#define mydebug(fmt, args...)	\
+	debug_cond(_DEBUG, fmt, ##args)
+	//debug_cond(_DEBUG, fmt, ##args)
+	//printf(fmt, ##args)
+
 /* Show a message if not in SPL */
 #define warn_non_spl(fmt, args...)			\
 	debug_cond(!_SPL_BUILD, fmt, ##args)
