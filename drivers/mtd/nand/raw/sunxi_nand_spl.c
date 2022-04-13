@@ -324,37 +324,6 @@ static int nand_wait_int(void)
 	return 0;
 }
 
-
-
-
-
-void nfc_repeat_mode_enable(void)
-{
-    __u32 reg_val;
-
-    reg_val = readl(SUNXI_NFC_BASE + NFC_REG_CTL);
-	if(((reg_val>>18)&0x3)>1)   //ddr type
-	{
-    	reg_val |= 0x1<<20;
-        writel(reg_val, SUNXI_NFC_BASE + NFC_REG_CTL);
-    }
-
-}
-
-void nfc_repeat_mode_disable(void)
-{
-    __u32 reg_val;
-
-    reg_val = readl(SUNXI_NFC_BASE + NFC_REG_CTL);
-	if(((reg_val>>18)&0x3)>1)   //ddr type
-	{
-    	reg_val &= (~(0x1<<20));
-        writel(reg_val, SUNXI_NFC_BASE + NFC_REG_CTL);
-    }
-}
-
-
-
 static int nand_exec_cmd(u32 cmd)
 {
 	int ret;
@@ -424,7 +393,7 @@ int nfc_get_id(char *idbuf)
 {
 	int ret, i;
 
-    nfc_repeat_mode_enable();
+    //nfc_repeat_mode_enable();
 	ret = nfc_set_id();
 	if (ret){
 		return ret;
@@ -447,7 +416,7 @@ int nfc_get_id(char *idbuf)
         mydebug("%x ", readb(SUNXI_NFC_BASE + NFC_RAM0_BASE + i));
 	}
     mydebug("\n");
-    nfc_repeat_mode_disable();
+    //nfc_repeat_mode_disable();
 
 	return ret;
 }
@@ -1427,7 +1396,7 @@ int nfc_get_status(void)
 	int ret;
 
     nfc_select_rb(0);
-	nfc_repeat_mode_enable();
+	//nfc_repeat_mode_enable();
 
     writel((readl(SUNXI_NFC_BASE + NFC_REG_CTL)) & (~NFC_CTL_RAM_METHOD),
            SUNXI_NFC_BASE + NFC_REG_CTL);
@@ -1440,7 +1409,7 @@ int nfc_get_status(void)
 		return ret;
 	}
 
-    nfc_repeat_mode_disable();
+    //nfc_repeat_mode_disable();
     ret = readb(SUNXI_NFC_BASE + NFC_RAM0_BASE);
     //mydebug("nand flash status:%x \n", ret);
     return ret;
