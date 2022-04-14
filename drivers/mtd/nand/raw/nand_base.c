@@ -1909,6 +1909,8 @@ static int nand_read_subpage(struct mtd_info *mtd, struct nand_chip *chip,
 	int index;
 	unsigned int max_bitflips = 0;
 	int ret;
+	mydebug("\r\n\r\n\r\n%s %d %s:data_offs:0x%x,readlen:0x%x,bufpoi:0x%p,page:%d--------------\n",
+			__FILE__, __LINE__, __FUNCTION__, data_offs,readlen,bufpoi,page);
 
 	/* Column address within the page aligned to ECC size (256bytes) */
 	start_step = data_offs / chip->ecc.size;
@@ -2330,6 +2332,11 @@ static int nand_do_read_ops(struct mtd_info *mtd, loff_t from,
 	buf = ops->datbuf;
 	oob = ops->oobbuf;
 	oob_required = oob ? 1 : 0;
+
+	mydebug("\r\n\r\n\r\n%s %d %s--------------\n",
+			__FILE__, __LINE__, __FUNCTION__);
+	mydebug("ops:mode:%d,len:%d,retlen:%d,ooblen:%d,oobretlen:%d,ooboffs:0x%08x,datbuf:0x%p,oobbuf:0x%p\r\n",
+		ops->mode,ops->len,ops->retlen,ops->ooblen,ops->oobretlen,ops->ooboffs,ops->datbuf,ops->oobbuf);
 
 	while (1) {
 		unsigned int ecc_failures = mtd->ecc_stats.failed;
