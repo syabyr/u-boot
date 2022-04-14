@@ -110,8 +110,6 @@
 #define NFC_REG_USER_DATA(x)	(0x0050 + ((x) * 4))
 #define NFC_REG_SPARE_AREA	0x00A0
 #define NFC_REG_PAT_ID		0x00A4
-//#define NFC_RAM0_BASE		0x0400
-//#define NFC_RAM1_BASE		0x0800
 
 /* define bit use in NFC_CTL */
 #define NFC_EN			BIT(0)
@@ -164,22 +162,7 @@
 #define NFC_ADR_NUM_MSK		(0x7 << 16)
 #define NFC_ADR_NUM(x)		(((x) - 1) << 16)
 #define NFC_SEND_ADR		BIT(19)
-/*
-#define NFC_ACCESS_DIR		BIT(20)
-#define NFC_DATA_TRANS		BIT(21)
-#define NFC_SEND_CMD1		BIT(22)
-#define NFC_WAIT_FLAG		BIT(23)
-#define NFC_SEND_CMD2		BIT(24)
-#define NFC_SEQ			BIT(25)
-#define NFC_DATA_SWAP_METHOD	BIT(26)
-#define NFC_ROW_AUTO_INC	BIT(27)
-#define NFC_SEND_CMD3		BIT(28)
-#define NFC_SEND_CMD4		BIT(29)
-#define NFC_CMD_TYPE_MSK	(0x3 << 30)
-#define NFC_NORMAL_OP		(0 << 30)
-#define NFC_ECC_OP		(1 << 30)
-#define NFC_PAGE_OP		(2 << 30)
-*/
+
 /* define bit use in NFC_RCMD_SET */
 #define NFC_READ_CMD_MSK	0xff
 #define NFC_RND_READ_CMD0_MSK	(0xff << 8)
@@ -216,7 +199,7 @@
 #define NFC_MAX_CS		7
 
 
-
+int nand_do_read_ops(u32 dest_addr, void *mainbuf, u32 buf_size);
 
 
 struct nfc_config {
@@ -251,8 +234,26 @@ const uint16_t random_seed[128] = {
 	0x7c57, 0x0fbe, 0x46ce, 0x4939, 0x6b17, 0x37bb, 0x3e91, 0x76db,
 };
 
-#define DEFAULT_TIMEOUT_US	100000
+static const u16 sunxi_nfc_randomizer_ecc1024_seeds[] = {
+	0x2cf5, 0x35f1, 0x63a4, 0x5274, 0x2bd2, 0x778b, 0x7285, 0x32b6,
+	0x6a5c, 0x70d6, 0x757d, 0x6769, 0x5375, 0x1e81, 0x0cf3, 0x3982,
+	0x6787, 0x042a, 0x6c49, 0x1925, 0x56a8, 0x40a9, 0x063e, 0x7bd9,
+	0x4dbf, 0x55ec, 0x672e, 0x7334, 0x5185, 0x4d00, 0x232a, 0x7e07,
+	0x445d, 0x6b92, 0x528f, 0x4255, 0x53ba, 0x7d82, 0x2a2e, 0x3a4e,
+	0x75eb, 0x450c, 0x6844, 0x1b5d, 0x581a, 0x4cc6, 0x0379, 0x37b2,
+	0x419f, 0x0e92, 0x6b27, 0x5624, 0x01e3, 0x07c1, 0x44a5, 0x130c,
+	0x13e8, 0x5910, 0x0876, 0x60c5, 0x54e3, 0x5b7f, 0x2269, 0x509f,
+	0x7665, 0x36fd, 0x3e9a, 0x0579, 0x6295, 0x14ef, 0x0a81, 0x1bcc,
+	0x4b16, 0x64db, 0x0514, 0x4f07, 0x0591, 0x3576, 0x6853, 0x0d9e,
+	0x259f, 0x38b7, 0x64fb, 0x3094, 0x4693, 0x6ddd, 0x29bb, 0x0bc8,
+	0x3f47, 0x490e, 0x0c0e, 0x7933, 0x3c9e, 0x5840, 0x398d, 0x3e68,
+	0x4af1, 0x71f5, 0x57cf, 0x1121, 0x64eb, 0x3579, 0x15ac, 0x584d,
+	0x5f2a, 0x47e2, 0x6528, 0x6eac, 0x196e, 0x6b96, 0x0450, 0x0179,
+	0x609c, 0x06e1, 0x4626, 0x42c7, 0x273e, 0x486f, 0x0705, 0x1601,
+	0x145b, 0x407e, 0x062b, 0x57a5, 0x53f9, 0x5659, 0x4410, 0x3ccd,
+};
 
+#define DEFAULT_TIMEOUT_US	100000
 
 static int check_value_inner(int offset, int expected_bits,
 			     int timeout_us, int negation)
@@ -267,6 +268,11 @@ static int check_value_inner(int offset, int expected_bits,
 	return 0;
 }
 
+static inline int check_value(int offset, int expected_bits,
+			      int timeout_us)
+{
+	return check_value_inner(offset, expected_bits, timeout_us, 0);
+}
 
 static inline int check_value_negated(int offset, int unexpected_bits,
 				      int timeout_us)
@@ -274,26 +280,9 @@ static inline int check_value_negated(int offset, int unexpected_bits,
 	return check_value_inner(offset, unexpected_bits, timeout_us, 1);
 }
 
-static inline int check_value(int offset, int expected_bits,
-			      int timeout_us)
-{
-	return check_value_inner(offset, expected_bits, timeout_us, 0);
-}
-
-static int nand_wait_int(void)
-{
-	if (!check_value(SUNXI_NFC_BASE + NFC_ST, NFC_ST_CMD_INT_FLAG,
-			 DEFAULT_TIMEOUT_US)) {
-		printf("nand: timeout waiting for interruption\n");
-		return -ETIMEDOUT;
-	}
-
-	return 0;
-}
-
 static int nand_wait_cmd_fifo_empty(void)
 {
-	if (!check_value_negated(SUNXI_NFC_BASE + NFC_REG_ST, NFC_ST_CMD_FIFO_STAT,
+	if (!check_value_negated(SUNXI_NFC_BASE + NFC_ST, NFC_ST_CMD_FIFO_STAT,
 				 DEFAULT_TIMEOUT_US)) {
 		printf("nand: timeout waiting for empty cmd FIFO\n");
 		return -ETIMEDOUT;
@@ -302,34 +291,16 @@ static int nand_wait_cmd_fifo_empty(void)
 	return 0;
 }
 
-
-
-void nfc_repeat_mode_enable(void)
+static int nand_wait_int(void)
 {
-    __u32 reg_val;
+	if (!check_value(SUNXI_NFC_BASE + NFC_ST, NFC_ST_CMD_INT_FLAG,
+			 DEFAULT_TIMEOUT_US)) {
+		mydebug("nand: timeout waiting for interruption\n");
+		return -ETIMEDOUT;
+	}
 
-    reg_val = readl(SUNXI_NFC_BASE + NFC_REG_CTL);
-	if(((reg_val>>18)&0x3)>1)   //ddr type
-	{
-    	reg_val |= 0x1<<20;
-        writel(reg_val, SUNXI_NFC_BASE + NFC_REG_CTL);
-    }
-
+	return 0;
 }
-
-void nfc_repeat_mode_disable(void)
-{
-    __u32 reg_val;
-
-    reg_val = readl(SUNXI_NFC_BASE + NFC_REG_CTL);
-	if(((reg_val>>18)&0x3)>1)   //ddr type
-	{
-    	reg_val &= (~(0x1<<20));
-        writel(reg_val, SUNXI_NFC_BASE + NFC_REG_CTL);
-    }
-}
-
-
 
 static int nand_exec_cmd(u32 cmd)
 {
@@ -341,17 +312,6 @@ static int nand_exec_cmd(u32 cmd)
 		mydebug("%s,%d,%s: failed.\r\n",__FILE__, __LINE__, __FUNCTION__);
 		return ret;
 	}
-	unsigned int ctrl = NAND_CTRL_CLE | NAND_CTRL_CHANGE;
-	u32 tmp = readl(SUNXI_NFC_BASE + NFC_REG_CTL);
-	if(ctrl & NAND_NCE)
-	{
-		tmp |= NFC_CE_CTL;
-	}
-	else
-	{
-		tmp &= ~NFC_CE_CTL;
-	}
-	writel(tmp, SUNXI_NFC_BASE + NFC_REG_CTL);
 
 	writel(NFC_ST_CMD_INT_FLAG, SUNXI_NFC_BASE + NFC_ST);
 	writel(cmd, SUNXI_NFC_BASE + NFC_CMD);
@@ -359,22 +319,6 @@ static int nand_exec_cmd(u32 cmd)
 	return nand_wait_int();
 }
 
-/*
-static int nand_exec_cmd(u32 cmd)
-{
-	int ret;
-
-	ret = nand_wait_cmd_fifo_empty();
-	if (ret)
-		return ret;
-
-	writel(NFC_ST_CMD_INT_FLAG, SUNXI_NFC_BASE + NFC_REG_ST);
-    // printf("nand cmd: %x [%x]\n", cmd, SUNXI_NFC_BASE + NFC_REG_CMD);
-	writel(cmd, SUNXI_NFC_BASE + NFC_REG_CMD);
-
-	return nand_wait_int();
-}
-*/
 
 int nfc_set_id(void)
 {
@@ -400,7 +344,7 @@ int nfc_get_id(char *idbuf)
 {
 	int ret, i;
 
-    nfc_repeat_mode_enable();
+    //nfc_repeat_mode_enable();
 	ret = nfc_set_id();
 	if (ret){
 		return ret;
@@ -413,81 +357,42 @@ int nfc_get_id(char *idbuf)
     /* Retrieve the data from SRAM */
     // memcpy(idbuf, (void *)(SUNXI_NFC_BASE + NFC_RAM0_BASE),
     //             6);
-    printf("nand id [%x]: ", SUNXI_NFC_BASE + NFC_RAM0_BASE);
+    mydebug("nand id [%x]: ", SUNXI_NFC_BASE + NFC_RAM0_BASE);
 	for (i = 0; i < 6; i++){
         if(idbuf)
         {
             // *(idbuf + i) = NFC_READ_RAM_B(NFC_RAM0_BASE+i);
             *(idbuf + i) = readb(SUNXI_NFC_BASE + NFC_RAM0_BASE + i);
         }
-        printf("%x ", readb(SUNXI_NFC_BASE + NFC_RAM0_BASE + i));
+        mydebug("%x ", readb(SUNXI_NFC_BASE + NFC_RAM0_BASE + i));
 	}
-    printf("\n");
-    nfc_repeat_mode_disable();
+    mydebug("\n");
+    //nfc_repeat_mode_disable();
 
 	return ret;
 }
 
 
 
+void dumphex32(char* name, char* base, int len)
+{
+	u32 i;
+
+	printf("dump %s registers:", name);
+	for (i=0; i<len; i+=4)
+	{
+		if (!(i&0xf))
+			printf("\n%p : ", base + i);
+		printf("%x ", readl(base + i));
+	}
+	printf("\n");
+}
+
 static void dump_reg()
 {
-	for(int i=0;i<20;i++)
-	{
-		int val = readl(SUNXI_NFC_BASE+4*i);
-		mydebug("0x%08x ",val);
-		if((i+1)%8 == 0)
-		{
-			mydebug("\r\n");
-		}
-	}
-	mydebug("\r\n");
+	//dumphex32("nand", (char*)SUNXI_NFC_BASE, 0x100);
 }
 
-
-/*
-static uint8_t sunxi_nfc_read_byte()
-{
-
-	uint8_t data=0x00;
-	int ret = nand_wait_cmd_fifo_empty();
-	if(ret)
-	{
-		mydebug("%s,%d,%s: failed.\r\n",__FILE__, __LINE__, __FUNCTION__);
-		return 1;
-	}
-	writel(1,SUNXI_NFC_BASE + NFC_REG_CNT);
-	u32 tmp = NFC_DATA_TRANS | NFC_DATA_SWAP_METHOD;
-	writel(tmp, SUNXI_NFC_BASE + NFC_REG_CMD);
-
-	ret = nand_wait_int();
-
-	if(ret)
-	{
-		mydebug("%s,%d,%s: failed.\r\n",__FILE__, __LINE__, __FUNCTION__);
-		return 2;
-	}
-
-	memcpy_fromio(&data,SUNXI_NFC_BASE + NFC_RAM0_BASE,1);
-
-	return data;
-}
-*/
-/*
-static int nand_readid_op_spl(void *buf,unsigned int len)
-{
-	u8 *id = buf;
-	nand_exec_cmd(NAND_CMD_READID);
-	for(unsigned int i=0; i<len; i++)
-	{
-		id[i] = sunxi_nfc_read_byte();
-	}
-	return 0;
-}
-*/
-
-
-#define NFC_CE_SEL				(7 << 24)
 int  nand_get_id()
 {
 	int ret;
@@ -496,16 +401,16 @@ int  nand_get_id()
     char idbuf[6] = {0};
 
 	cfg = readl(SUNXI_NFC_BASE + NFC_REG_CTL);
-    cfg &= ((~NFC_CE_SEL) & 0xffffffff);
+    cfg &= ((~NFC_CE_SEL_MSK) & 0xffffffff);
     cfg |= (0 << 24);
 	writel(cfg, SUNXI_NFC_BASE + NFC_REG_CTL);
 
 	ret = nfc_get_id(idbuf);
-    printf("nand id : ");
+    mydebug("nand id : ");
 	for (i = 0; i < 6; i++){
-        printf("%x ", idbuf[i]);
+        mydebug("%x ", idbuf[i]);
 	}
-    printf("\n");
+    mydebug("\n");
 
 	return ret;
 }
@@ -531,7 +436,7 @@ void nand_init(void)
 
 	if (!check_value_negated(SUNXI_NFC_BASE + NFC_CTL,
 				 NFC_CTL_RESET, DEFAULT_TIMEOUT_US)) {
-		printf("Couldn't initialize nand\n");
+		mydebug("Couldn't initialize nand\n");
 	}
 	dump_reg();
 	/* reset NAND */
@@ -545,7 +450,7 @@ void nand_init(void)
 
 	dump_reg();
 	//读取id信息
-	u8 id_data[8]={0};
+	u8 id_data[6]={0};
 
 	nand_exec_cmd(NAND_CMD_READID);
 	int ret = nand_wait_cmd_fifo_empty();
@@ -555,7 +460,7 @@ void nand_init(void)
 		return;
 	}
 	dump_reg();
-	writel(8,SUNXI_NFC_BASE + NFC_REG_CNT);
+	writel(6,SUNXI_NFC_BASE + NFC_REG_CNT);
 	u32 tmp = NFC_DATA_TRANS | NFC_DATA_SWAP_METHOD;
 	writel(tmp, SUNXI_NFC_BASE + NFC_REG_CMD);
 	dump_reg();
@@ -567,14 +472,13 @@ void nand_init(void)
 		return ;
 	}
 	dump_reg();
-	memcpy_fromio(id_data,SUNXI_NFC_BASE + NFC_RAM0_BASE,8);
+	memcpy_fromio(id_data,SUNXI_NFC_BASE + NFC_RAM0_BASE,6);
 	dump_reg();
-	for(int i=0;i<8;i++)
+	for(int i=0;i<6;i++)
 	{
 		mydebug("%02x ",id_data[i]);
 	}
 	mydebug("\r\n");
-
 
 }
 
@@ -632,40 +536,14 @@ static int nand_change_column(u16 column)
 
 static const int ecc_bytes[] = {32, 46, 54, 60, 74, 88, 102, 110, 116};
 
-static int sunxi_nfc_wait_int(u32 flags,
-			      unsigned int timeout_ms)
-{
-	unsigned int timeout_ticks;
-	u32 time_start, status;
-	int ret = -ETIMEDOUT;
-
-	if (!timeout_ms)
-		timeout_ms = 1000;
-
-	timeout_ticks = (timeout_ms * CONFIG_SYS_HZ) / 1000;
-
-	time_start = get_timer(0);
-
-	do {
-		status = readl(SUNXI_NFC_BASE + NFC_ST);
-		if ((status & flags) == flags) {
-			ret = 0;
-			break;
-		}
-
-		udelay(1);
-	} while (get_timer(time_start) < timeout_ticks);
-
-	writel(status & flags, SUNXI_NFC_BASE + NFC_ST);
-
-	return ret;
-}
 static int nand_read_page(const struct nfc_config *conf, u32 offs,
 			  void *dest, int len)
 {
 	//mydebug("nand_read_page para:0x%08x,0x%08p,%d\r\n",offs,dest,len);
 	//mydebug("nand_read_page conf:%d,%d,%d,%d,%d,%d,%d\r\n",
 	//	conf->page_size,conf->ecc_strength,conf->ecc_size,conf->addr_cycles,conf->nseeds,conf->randomize,conf->valid);
+
+	//计算总的sector,page地址
 	int nsectors = len / conf->ecc_size;
 	u16 rand_seed = 0;
 	int oob_chunk_sz = ecc_bytes[conf->ecc_strength];
@@ -704,16 +582,6 @@ static int nand_read_page(const struct nfc_config *conf, u32 offs,
 		nand_change_column(data_off);
 		writel(conf->ecc_size, SUNXI_NFC_BASE + NFC_CNT);
 		nand_exec_cmd(NFC_DATA_TRANS);
-
-		
-		u8 debugdata1[16]={0xff};
-		memcpy_fromio(debugdata1, SUNXI_NFC_BASE + NFC_RAM0_BASE,
-			      16);
-		for(int si=0;si<16;si++)
-		{
-			mydebug("%02x ",debugdata1[si]);
-		}
-		mydebug("\r\n");
 		
 
 		/*
@@ -723,7 +591,7 @@ static int nand_read_page(const struct nfc_config *conf, u32 offs,
 		nand_change_column(oob_off);
 		nand_exec_cmd(NFC_DATA_TRANS | NFC_ECC_CMD);
 
-		ret = sunxi_nfc_wait_int(NFC_ST_CMD_INT_FLAG,0);
+		ret = nand_wait_int();
 		if(ret)
 		{
 			mydebug("sunxi_nfc_wait_int timeout\r\n");
@@ -932,6 +800,7 @@ static int nand_detect_config(struct nfc_config *conf, u32 offs, void *dest)
 	return -EINVAL;
 }
 
+#if 0
 static int nand_read_buffer(struct nfc_config *conf, uint32_t offs,
 			    unsigned int size, void *dest)
 {
@@ -983,9 +852,576 @@ static int nand_read_buffer(struct nfc_config *conf, uint32_t offs,
 
 	return 0;
 }
+#endif
+
+
+/////////////
+
+
+#define MTD_ERASESIZE 0x200000
+#define MTD_WRITESIZE 0x2000
+#define MTD_OOBSIZE 640
+#define ECC_BYTES 0x46
+#define NFC_ECC_OP		(1 << 30)
+#define ECC_SIZE 1024
+
+
+//done
+static void sunxi_nfc_read_buf(uint8_t *buf, int len)
+{
+	int ret;
+	int cnt;
+	int offs = 0;
+	u32 tmp;
+	/*
+	if(len != 1)
+	{
+		mydebug("%s,%d,%s:0x%p,%d---\r\n",__FILE__,__LINE__,__FUNCTION__,buf,len);
+	}
+	*/
+	while (len > offs) {
+		cnt = min(len - offs, NFC_SRAM_SIZE);
+
+		ret = nand_wait_cmd_fifo_empty();
+		if (ret)
+		{
+			mydebug("%s,%d,%s:%d--\r\n",__FILE__,__LINE__,__FUNCTION__,ret);
+			break;
+		}
+
+		writel(cnt, SUNXI_NFC_BASE + NFC_REG_CNT);
+		tmp = NFC_DATA_TRANS | NFC_DATA_SWAP_METHOD;
+		writel(tmp, SUNXI_NFC_BASE + NFC_REG_CMD);
+		ret = nand_wait_int();
+		if (ret)
+		{
+			mydebug("%s,%d,%s:%d--\r\n",__FILE__,__LINE__,__FUNCTION__,ret);
+			break;
+		}
+        // mydebug("nand data:%x \n", readl(SUNXI_NFC_BASE + NFC_RAM0_BASE));
+
+        // dumphex32("nand", (char*)buf + offs, 0x100);
+    // dumphex32("nand", (char*)SUNXI_NFC_BASE, 0x100);
+		if (buf)
+			memcpy_fromio(buf + offs, SUNXI_NFC_BASE + NFC_RAM0_BASE,
+				      cnt);
+		offs += cnt;
+	}
+}
+
+//TODO:确认MTD_ERASESIZE / MTD_WRITESIZE
+//done
+u16 sunxi_nfc_randomizer_state(int page, bool ecc)
+{
+	const u16 *seeds = random_seed;
+    int state;
+
+	int mod = MTD_ERASESIZE / MTD_WRITESIZE;
+
+	if (mod > ARRAY_SIZE(random_seed))
+		mod = ARRAY_SIZE(random_seed);
+
+	if (ecc) {
+		//这里默认是ecc1024,暂时不考虑512的情况
+		seeds = sunxi_nfc_randomizer_ecc1024_seeds;
+	}
+    mydebug("%s,%d,%s:page:0x%x,ecc:%d,esize:%x,wsize:%x,seeds:%x",
+					__FILE__, __LINE__, __FUNCTION__,
+					page,ecc,MTD_ERASESIZE,MTD_WRITESIZE,seeds[page % mod]);
+	return seeds[page % mod];
+}
+
+
+//done
+static u16 sunxi_nfc_randomizer_step(u16 state, int count)
+{
+	state &= 0x7fff;
+
+	/*
+	 * This loop is just a simple implementation of a Fibonacci LFSR using
+	 * the x16 + x15 + 1 polynomial.
+	 */
+	while (count--)
+		state = ((state >> 1) |
+			 (((state ^ (state >> 1)) & 1) << 14)) & 0x7fff;
+
+	return state;
+}
+
+//done
+static void sunxi_nfc_randomize_bbm(int page, u8 *bbm)
+{
+	u16 state = sunxi_nfc_randomizer_state(page, true);
+
+	bbm[0] ^= state;
+	bbm[1] ^= sunxi_nfc_randomizer_step(state, 8);
+}
+
+
+
+
+static inline void sunxi_nfc_user_data_to_buf(u32 user_data, u8 *buf)
+{
+	buf[0] = user_data;
+	buf[1] = user_data >> 8;
+	buf[2] = user_data >> 16;
+	buf[3] = user_data >> 24;
+}
+
+//相对于原来的api,去掉了两个参数? cur_off,max_bitflips
+//TODO:需要确认
+static int sunxi_nfc_hw_ecc_read_chunk(
+				       u8 *data, int data_off,
+				       u8 *oob, int oob_off,
+				       bool bbm, int page)
+{
+	int raw_mode = 0;
+	u32 status;
+	int ret;
+    u32 tmp = 0, cmd = 0;
+
+    //mydebug("\r\n\r\n\r\n%s %d %s:data:0x%p,0x%08x,oob:0x%p,0x%08x,bbm:%d,page:%d--------------\n",
+	//		__FILE__, __LINE__, __FUNCTION__,data,data_off,oob,oob_off,bbm,page );
+	dump_reg();
+
+	// if (*cur_off != data_off)
+	// 	nand->cmdfunc(mtd, NAND_CMD_RNDOUT, data_off, -1);
+
+	if (!bbm)
+    {
+        ret = nand_wait_cmd_fifo_empty();
+        if (ret)
+            return;
+        tmp = readl(SUNXI_NFC_BASE + NFC_REG_CTL);
+        tmp |= NFC_CE_CTL;
+        writel(tmp, SUNXI_NFC_BASE + NFC_REG_CTL);
+
+        cmd |= NFC_SEND_CMD1 | NFC_CMD_RNDOUT;
+        cmd |= NFC_SEND_CMD2;
+        // writel(NFC_CMD_RNDOUTSTART, SUNXI_NFC_BASE + NFC_REG_RCMD_SET);
+        writel((NFC_CMD_RNDOUTSTART << NFC_RANDOM_READ_CMD1_OFFSET) |
+            (NFC_CMD_RNDOUT << NFC_RANDOM_READ_CMD0_OFFSET) |
+            (NFC_CMD_READSTART << NFC_READ_CMD_OFFSET),
+            SUNXI_NFC_BASE + NFC_REG_RCMD_SET);
+        cmd |= NFC_SEND_ADDR | NFC_ADR_NUM(2);
+        writel(data_off & 0xffff, SUNXI_NFC_BASE + NFC_REG_ADDR_LOW);
+    // mydebug("%s addr_low:0x%x, addr_high:0x%x\n", __FUNCTION__, readl(SUNXI_NFC_BASE + NFC_REG_ADDR_LOW), readl(SUNXI_NFC_BASE + NFC_REG_ADDR_HIGH));
+        writel(cmd, SUNXI_NFC_BASE + NFC_REG_CMD);
+        nand_wait_int();
+    }
+
+	sunxi_nfc_read_buf(NULL, ECC_SIZE);
+
+	status = readl(SUNXI_NFC_BASE + NFC_REG_ECC_ST);
+    //mydebug("nand ecc_st:%x \n", status);
+	// if (data_off + ecc->size != oob_off)
+	// 	nand->cmdfunc(mtd, NAND_CMD_RNDOUT, oob_off, -1);
+
+	if (data_off + ECC_SIZE != oob_off)
+    {
+        ret = nand_wait_cmd_fifo_empty();
+        if (ret)
+            return;
+        tmp = readl(SUNXI_NFC_BASE + NFC_REG_CTL);
+        tmp |= NFC_CE_CTL;
+        writel(tmp, SUNXI_NFC_BASE + NFC_REG_CTL);
+
+        cmd |= NFC_SEND_CMD1 | NFC_CMD_RNDOUT;
+        cmd |= NFC_SEND_CMD2;
+        // writel(NFC_CMD_RNDOUTSTART, SUNXI_NFC_BASE + NFC_REG_RCMD_SET);
+        writel((NFC_CMD_RNDOUTSTART << NFC_RANDOM_READ_CMD1_OFFSET) |
+            (NFC_CMD_RNDOUT << NFC_RANDOM_READ_CMD0_OFFSET) |
+            (NFC_CMD_READSTART << NFC_READ_CMD_OFFSET),
+            SUNXI_NFC_BASE + NFC_REG_RCMD_SET);
+        cmd |= NFC_SEND_ADDR | NFC_ADR_NUM(2);
+        writel(oob_off & 0xffff, SUNXI_NFC_BASE + NFC_REG_ADDR_LOW);
+        //mydebug("%s addr_low:0x%x, addr_high:0x%x\n", __FUNCTION__, readl(SUNXI_NFC_BASE + NFC_REG_ADDR_LOW), readl(SUNXI_NFC_BASE + NFC_REG_ADDR_HIGH));
+        writel(cmd, SUNXI_NFC_BASE + NFC_REG_CMD);
+        nand_wait_int();
+    }
+	ret = nand_wait_cmd_fifo_empty();
+	if (ret)
+		return ret;
+
+	writel(NFC_DATA_TRANS | NFC_DATA_SWAP_METHOD | NFC_ECC_OP,
+	       SUNXI_NFC_BASE + NFC_REG_CMD);
+
+    //mydebug("nand data2:%x \n", readl(SUNXI_NFC_BASE + NFC_RAM0_BASE));
+    dump_reg();
+	ret = nand_wait_int();
+	if (ret)
+		return ret;
+
+	status = readl(SUNXI_NFC_BASE + NFC_REG_ECC_ST);
+    //mydebug("nand ecc_st:%x \n", status);
+	if (status & NFC_ECC_PAT_FOUND(0)) {
+        // mydebug("%s exit 1\n", __FUNCTION__);
+		return 1;
+	}
+
+	ret = NFC_ECC_ERR_CNT(0, readl(SUNXI_NFC_BASE + NFC_REG_ECC_ERR_CNT(0)));
+
+	memcpy(data, SUNXI_NFC_BASE + NFC_RAM0_BASE, ECC_SIZE);
+
+    // mydebug("%s page:%d\n", __FUNCTION__, page);
+	// nand->cmdfunc(mtd, NAND_CMD_RNDOUT, oob_off, -1);
+
+    ret = nand_wait_cmd_fifo_empty();
+    if (ret)
+        return;
+    tmp = readl(SUNXI_NFC_BASE + NFC_REG_CTL);
+    tmp |= NFC_CE_CTL;
+    writel(tmp, SUNXI_NFC_BASE + NFC_REG_CTL);
+
+    cmd |= NFC_SEND_CMD1 | NFC_CMD_RNDOUT;
+    cmd |= NFC_SEND_CMD2;
+    // writel(NFC_CMD_RNDOUTSTART, SUNXI_NFC_BASE + NFC_REG_RCMD_SET);
+    writel((NFC_CMD_RNDOUTSTART << NFC_RANDOM_READ_CMD1_OFFSET) |
+        (NFC_CMD_RNDOUT << NFC_RANDOM_READ_CMD0_OFFSET) |
+        (NFC_CMD_READSTART << NFC_READ_CMD_OFFSET),
+        SUNXI_NFC_BASE + NFC_REG_RCMD_SET);
+    cmd |= NFC_SEND_ADDR | NFC_ADR_NUM(2);
+    writel(oob_off & 0xffff, SUNXI_NFC_BASE + NFC_REG_ADDR_LOW);
+    writel(cmd, SUNXI_NFC_BASE + NFC_REG_CMD);
+    nand_wait_int();
+
+	sunxi_nfc_read_buf(oob,ECC_BYTES + 4);
+	if (status & NFC_ECC_ERR(0)) {
+		/*
+		 * Re-read the data with the randomizer disabled to identify
+		 * bitflips in erased pages.
+		 */
+        //mydebug("%s ecc err 1\n", __FUNCTION__);
+	} else {
+		/*
+		 * The engine protects 4 bytes of OOB data per chunk.
+		 * Retrieve the corrected OOB bytes.
+		 */
+		sunxi_nfc_user_data_to_buf(readl(SUNXI_NFC_BASE +
+						 NFC_REG_USER_DATA(0)),
+					   oob);
+
+		/* De-randomize the Bad Block Marker. */
+		if (bbm)
+			sunxi_nfc_randomize_bbm(page, oob);
+	}
+
+
+    // mydebug("%s exit %d\n", __FUNCTION__, raw_mode);
+	return 0;
+}
+
+
+static void sunxi_nfc_hw_ecc_enable(void)
+{
+	u32 ecc_ctl;
+	// struct sunxi_nand_hw_ecc *data = nand->ecc.priv;
+
+	ecc_ctl = readl(SUNXI_NFC_BASE + NFC_REG_ECC_CTL);
+    // mydebug("%s ecc_ctl:0x%x\n", __FUNCTION__, ecc_ctl);
+	ecc_ctl &= ~(NFC_ECC_MODE_MSK | NFC_ECC_PIPELINE |
+		     NFC_ECC_BLOCK_SIZE_MSK);
+	ecc_ctl |= NFC_ECC_EN | NFC_ECC_MODE(0x4) | NFC_ECC_EXCEPTION;
+
+    // mydebug("%s ecc_ctl:0x%x\n", __FUNCTION__, ecc_ctl);
+	writel(ecc_ctl, SUNXI_NFC_BASE + NFC_REG_ECC_CTL);
+}
+
+static void sunxi_nfc_hw_ecc_disable(void)
+{
+	writel(readl(SUNXI_NFC_BASE + NFC_REG_ECC_CTL) & ~NFC_ECC_EN,
+	       SUNXI_NFC_BASE + NFC_REG_ECC_CTL);
+}
+
+
+
+
+static int sunxi_nfc_hw_ecc_read_page(uint8_t *buf, int page)
+{
+	int ret, i, cur_off = 0;
+    int ecc_steps = 8;
+    char *oob_poi = NULL;
+	bool raw_mode = false;
+
+    oob_poi = malloc(MTD_OOBSIZE);
+    if(NULL == oob_poi)
+    {
+        mydebug("%s %d error!!!\n", __FUNCTION__, __LINE__);
+        return -1;
+    }
+
+	//mydebug("\r\n\r\n\r\n%s %d %s:buf:0x%p,page:%d--------------\n",
+	//		__FILE__, __LINE__, __FUNCTION__, buf,page );
+	//mydebug("\r\n\r\n\r\n%s %d %s,ecc:steps:%d,size:%d,bytes:%d--------------\n",
+	//		__FILE__, __LINE__, __FUNCTION__, ecc_steps,ECC_SIZE,ECC_BYTES );
+
+	sunxi_nfc_hw_ecc_enable();
+
+	for (i = 0; i < ecc_steps; i++) {
+		int data_off = i * ECC_SIZE;
+		int oob_off = i * (ECC_BYTES + 4);
+		u8 *data = buf + data_off;
+		u8 *oob = oob_poi + oob_off;
+
+		ret = sunxi_nfc_hw_ecc_read_chunk(data, data_off, oob,
+						  oob_off + MTD_WRITESIZE, !i, page);
+		if(ret<0)
+		{
+			mydebug("\r\n\r\n\r\n%s %d %s:sunxi_nfc_hw_ecc_read_chunk:%d--------------\n",
+			__FILE__, __LINE__, __FUNCTION__,ret);
+			return ret;
+		}
+		else if(ret)
+		{
+			raw_mode = true;
+		}
+
+	}
+	//不读oob
+
+	sunxi_nfc_hw_ecc_disable();
+    free(oob_poi);
+
+	return 0;
+}
+
+
+s32 nfc_select_chip(u32 chip)
+{
+	u32 cfg;
+    // mtd->writesize
+    writel(0x2000, SUNXI_NFC_BASE + NFC_REG_SPARE_AREA);
+
+	cfg = readl(SUNXI_NFC_BASE + NFC_REG_CTL);
+    cfg &= ((~NFC_CE_SEL_MSK) & 0xffffffff);
+    cfg |= (0 << 24);
+	writel(cfg, SUNXI_NFC_BASE + NFC_REG_CTL);
+
+	return 0;
+}
+
+s32 nfc_select_rb(u32 rb)
+{
+	s32 cfg;
+
+	cfg = readl(SUNXI_NFC_BASE + NFC_REG_CTL);
+    cfg &= ((~NFC_CE_SEL_MSK) & 0xffffffff);
+    cfg |= ((rb & 0x1) << 3);
+	writel(cfg, SUNXI_NFC_BASE + NFC_REG_CTL);
+    return 0;
+
+}
+
+
+int nfc_get_status(void)
+{
+	int ret;
+
+    nfc_select_rb(0);
+
+    writel((readl(SUNXI_NFC_BASE + NFC_REG_CTL)) & (~NFC_CTL_RAM_METHOD),
+           SUNXI_NFC_BASE + NFC_REG_CTL);
+	writel(1, SUNXI_NFC_BASE + NFC_REG_CNT);
+	nand_exec_cmd(NFC_SEND_CMD1 | NFC_DATA_TRANS | 0x70);
+
+	ret = nand_wait_cmd_fifo_empty();
+	ret |= nand_wait_int();
+	if(ret){
+		return ret;
+	}
+
+    ret = readb(SUNXI_NFC_BASE + NFC_RAM0_BASE);
+    //mydebug("nand flash status:%x \n", ret);
+    return ret;
+}
+
+void _cal_addr_in_chip(u32 offs, u8 *addr, u8 cycle)
+{
+	u32 row;
+	u32 column;
+    u32 block, page;
+
+	column = offs % 0x2000; // page size: 0x2000
+    page = (offs / 0x2000) % 0x100;
+    block = offs / (0x2000 * 0x100);
+
+	// column = 512 * sector;
+	row = block * 0x100 + page;
+
+	switch(cycle){
+		case 1:
+			addr[0] = 0x00;
+			break;
+		case 2:
+			addr[0] = column & 0xff;
+			addr[1] = (column >> 8) & 0xff;
+			break;
+		case 3:
+			addr[0] = row & 0xff;
+			addr[1] = (row >> 8) & 0xff;
+			addr[2] = (row >> 16) & 0xff;
+			break;
+		case 4:
+			addr[0] = column && 0xff;
+			addr[1] = (column >> 8) & 0xff;
+			addr[2] = row & 0xff;
+			addr[3] = (row >> 8) & 0xff;
+			break;
+		case 5:
+			addr[0] = column & 0xff;
+			addr[1] = (column >> 8) & 0xff;
+			addr[2] = row & 0xff;
+			addr[3] = (row >> 8) & 0xff;
+			addr[4] = (row >> 16) & 0xff;
+			break;
+		default:
+			break;
+	}
+}
+void _set_addr(u8 *addr, u8 cnt)
+{
+	u32 i;
+	u32 addr_low = 0;
+	u32 addr_high = 0;
+
+	for (i = 0; i < cnt; i++){
+		if (i < 4)
+			addr_low |= (addr[i] << (i*8) );
+		else
+			addr_high |= (addr[i] << ((i - 4)*8));
+	}
+
+	writel(addr_low, SUNXI_NFC_BASE + NFC_REG_ADDR_LOW);
+    if(cnt > 4)
+        writel(addr_high, SUNXI_NFC_BASE + NFC_REG_ADDR_HIGH);
+}
+
+static unsigned long ffs1(unsigned long word)
+{
+	int num = 0;
+
+	if ((word & 0xffff) == 0) {
+		num += 16;
+		word >>= 16;
+	}
+	if ((word & 0xff) == 0) {
+		num += 8;
+		word >>= 8;
+	}
+	if ((word & 0xf) == 0) {
+		num += 4;
+		word >>= 4;
+	}
+	if ((word & 0x3) == 0) {
+		num += 2;
+		word >>= 2;
+	}
+	if ((word & 0x1) == 0)
+		num += 1;
+	return num;
+}
+
+
+int nand_do_read_ops(u32 dest_addr, void *mainbuf, u32 buf_size)
+{
+
+    u32 cmd = 0, tmp = 0;
+    u8 addr[5] = {0};
+    u32 page_shift, pagemask;
+    int realpage, page;
+
+	/* Calculate the address shift from the page size */
+	page_shift = ffs1(MTD_WRITESIZE);
+	/* Convert chipsize to number of pages per chip -1 */
+	pagemask = 0x7ffff;
+
+	realpage = (int)(dest_addr >> page_shift);
+	page = realpage & pagemask;
+
+    //mydebug("%s %d: page %x\n", __FUNCTION__, __LINE__, page);
+    //mydebug("%s : %x %x %x\n", __FUNCTION__, pagemask, page_shift, realpage);
+	// chip->timing_cfg = NFC_TIMING_CFG(tWB, tADL, tWHR, tRHW, tCAD);
+
+    nfc_select_chip(0);
+	nfc_select_rb(0);
+
+    nfc_get_status();
+
+    tmp = readl(SUNXI_NFC_BASE + NFC_REG_CTL);
+    tmp |= NFC_CE_CTL;
+    writel(tmp, SUNXI_NFC_BASE + NFC_REG_CTL);
+
+    _cal_addr_in_chip(dest_addr, addr, 5);
+    /*set addr*/
+    _set_addr(addr, 5);
+
+    cmd |= NFC_SEND_CMD1 | 0x00;
+    cmd |= NFC_SEND_ADDR | NFC_ADR_NUM(5);
+    cmd |= NFC_SEND_CMD2;
+    // writel(NFC_CMD_READSTART, SUNXI_NFC_BASE + NFC_REG_RCMD_SET);
+	writel((NFC_CMD_RNDOUTSTART << NFC_RANDOM_READ_CMD1_OFFSET) |
+	       (NFC_CMD_RNDOUT << NFC_RANDOM_READ_CMD0_OFFSET) |
+	       (NFC_CMD_READSTART << NFC_READ_CMD_OFFSET),
+	       SUNXI_NFC_BASE + NFC_REG_RCMD_SET);
+    writel(cmd, SUNXI_NFC_BASE + NFC_REG_CMD);
+
+    //mydebug("%s addr_low:0x%x, addr_high:0x%x--------------\n", __FUNCTION__, readl(SUNXI_NFC_BASE + NFC_REG_ADDR_LOW), readl(SUNXI_NFC_BASE + NFC_REG_ADDR_HIGH));
+	udelay(2000);
+	/*
+	int ret = sunxi_nfc_wait_int(NFC_ST_CMD_INT_FLAG,0);
+	if(ret)
+	{
+		printf("sunxi_nfc_wait_int failed.\r\n");
+	}
+	*/
+    nand_wait_int();
+
+    sunxi_nfc_hw_ecc_read_page(mainbuf, page);
+
+    return 0;
+}
+
+
+
+//////////////
+
+
+
+
 
 int nand_spl_load_image(uint32_t offs, unsigned int size, void *dest)
 {
+	mydebug("%s,%d,%s:",__FILE__,__LINE__,__FUNCTION__);
+	
+	//nand_do_read_ops(0x800000, 0x4a000000, 0x400);
+	//nand_do_read_ops(0x800400, 0x4a000400, 0x400);
+	//dumphex32("ddr", (char*)0x4a000000, 0x800);
+
+	/*
+	for(int i=0;i<2;i++)
+	{
+		printf("%d\r\n",i);
+		nand_do_read_ops(0x800000+i*0x400, 0x4a000000+i*0x400, 0x400);
+		dumphex32("ddr", (char*)(0x4a000000+i*0x400), 0x400);
+	}
+	return 0;
+	*/
+	//dumphex32("ddr", (char*)0x4a000000, 0x1000);
+	
+
+	//正常的加载版本:
+	
+	for(int i=0;i<1024;i++)
+	{
+		//printf("%d\r\n",i);
+		nand_do_read_ops(0x800000+i*0x400, 0x4a000000+i*0x400, 0x400);
+	}
+	int32_t crc1 = crc32(0xffffffff,0x4a000000,0x100000);
+	int32_t crc2 = crc32(0xffffffff,0x5a000000,0x100000);
+	int32_t crc3 = crc32(0xffffffff,0x5a000000,0x100000);
+	printf("1:0x%08x,2:0x%08x,3:0x%08x\r\n",crc1,crc2,crc3);
+
+	/*
 	static struct nfc_config conf = { };
 	int ret;
 	mydebug("nand_spl_load_image\r\n");
@@ -997,6 +1433,9 @@ int nand_spl_load_image(uint32_t offs, unsigned int size, void *dest)
 	}
 	mydebug("nand_detect_config end\r\n");
 	return nand_read_buffer(&conf, offs, size, dest);
+	*/
+	printf("nand_spl_load_image finished.\r\n");
+	return 0;
 }
 
 void nand_deselect(void)
