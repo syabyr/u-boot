@@ -423,4 +423,18 @@
 #define CONFIG_EXTRA_ENV_SETTINGS
 #endif
 
+/* SPI Flash environment */
+#ifdef CONFIG_SPI_FLASH
+#undef CONFIG_ENV_SIZE
+#define CONFIG_ENV_SIZE			0x8000
+#define CONFIG_ENV_SECT_SIZE		0x1000
+#ifdef CONFIG_ENV_IS_IN_MMC
+#undef CONFIG_ENV_IS_IN_MMC
+#endif
+#define CONFIG_ENV_IS_IN_SPI_FLASH
+#undef CONFIG_ENV_OFFSET
+#define CONFIG_ENV_OFFSET		0x000f8000
+#endif
+
 #endif /* _SUNXI_COMMON_CONFIG_H */
+
