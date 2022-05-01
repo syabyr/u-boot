@@ -335,6 +335,13 @@
 				       "PE15";
 				function = "csi";
 			};
+			emac_rgmii_pins: emac0@0 {
+				pins = "PD0", "PD1", "PD2", "PD3",
+					"PD4", "PD5", "PD7",
+					"PD8", "PD9", "PD10";
+				function = "emac";
+				drive-strength = <40>;
+			};
 
 			/omit-if-no-ref/
 			csi1_mclk_pin: csi1-mclk-pin {
