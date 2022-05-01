@@ -51,6 +51,7 @@
 	aliases {
 		ethernet0 = &emac;
 		serial0 = &uart0;
+		spi0 = &spi0;
 	};
 
 	chosen {
@@ -102,11 +103,14 @@
 };
 
 &emac {
-    compatible = "allwinner,sun8i-h3-emac";
-    pinctrl-0 = <&emac_rgmii_pins>;
-    phy-handle = <&int_mii_phy>;
-    phy-mode = "mii";
-    allwinner,leds-active-high;
-    status = "okay";
+	compatible = "allwinner,sun8i-h3-emac";
+	pinctrl-0 = <&emac_rgmii_pins>;
+	phy-handle = <&int_mii_phy>;
+	phy-mode = "mii";
+	allwinner,leds-active-high;
+	status = "okay";
 };
 
+&spi0 {
+	status = "okay";
+};
