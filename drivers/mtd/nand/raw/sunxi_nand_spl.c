@@ -199,7 +199,7 @@
 #define NFC_MAX_CS		7
 
 
-int nand_do_read_ops(u32 dest_addr, void *mainbuf, u32 buf_size);
+int spl_nand_do_read_ops(u32 dest_addr, void *mainbuf, u32 buf_size);
 
 
 struct nfc_config {
@@ -1322,7 +1322,7 @@ static unsigned long ffs1(unsigned long word)
 }
 
 
-int nand_do_read_ops(u32 dest_addr, void *mainbuf, u32 buf_size)
+int spl_nand_do_read_ops(u32 dest_addr, void *mainbuf, u32 buf_size)
 {
 
     u32 cmd = 0, tmp = 0;
@@ -1393,15 +1393,15 @@ int nand_spl_load_image(uint32_t offs, unsigned int size, void *dest)
 {
 	mydebug("%s,%d,%s:",__FILE__,__LINE__,__FUNCTION__);
 	
-	//nand_do_read_ops(0x800000, 0x4a000000, 0x400);
-	//nand_do_read_ops(0x800400, 0x4a000400, 0x400);
+	//spl_nand_do_read_ops(0x800000, 0x4a000000, 0x400);
+	//spl_nand_do_read_ops(0x800400, 0x4a000400, 0x400);
 	//dumphex32("ddr", (char*)0x4a000000, 0x800);
 
 	/*
 	for(int i=0;i<2;i++)
 	{
 		printf("%d\r\n",i);
-		nand_do_read_ops(0x800000+i*0x400, 0x4a000000+i*0x400, 0x400);
+		spl_nand_do_read_ops(0x800000+i*0x400, 0x4a000000+i*0x400, 0x400);
 		dumphex32("ddr", (char*)(0x4a000000+i*0x400), 0x400);
 	}
 	return 0;
@@ -1414,7 +1414,7 @@ int nand_spl_load_image(uint32_t offs, unsigned int size, void *dest)
 	for(int i=0;i<1024;i++)
 	{
 		//printf("%d\r\n",i);
-		nand_do_read_ops(0x800000+i*0x400, 0x4a000000+i*0x400, 0x400);
+		spl_nand_do_read_ops(0x800000+i*0x400, 0x4a000000+i*0x400, 0x400);
 	}
 	int32_t crc1 = crc32(0xffffffff,0x4a000000,0x100000);
 	int32_t crc2 = crc32(0xffffffff,0x5a000000,0x100000);
